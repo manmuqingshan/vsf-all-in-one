@@ -110,6 +110,15 @@ extern vsf_err_t vsf_gpio_irq_distributor_pin_config(vsf_gpio_irq_distributor_t 
                                                      vsf_gpio_pin_mask_t pin_mask,
                                                      vsf_gpio_exti_irq_cfg_t *irq_cfg_ptr);
 
+// helper for gpio_to_exti: update only the EXTI related mode bits of given pins,
+// while preserving the rest of each pin's configuration (read-modify-write).
+extern vsf_err_t vsf_exti_gpio_config_mode(vsf_exti_gpio_t *exti_gpio_ptr,
+                                           vsf_gpio_pin_mask_t pin_mask,
+                                           vsf_gpio_mode_t mode);
+
+extern vsf_err_t vsf_exti_gpio_ctrl(vsf_exti_gpio_t *exti_gpio_ptr,
+                                    vsf_gpio_ctrl_t ctrl, void *param);
+
  /*============================ IMPLEMENTATION ================================*/
 
  #endif

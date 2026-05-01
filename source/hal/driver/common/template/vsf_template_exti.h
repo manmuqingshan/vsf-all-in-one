@@ -226,9 +226,9 @@ typedef uint32_t vsf_exti_channel_mask_t;
  *
  * - Trigger mode
  *  - VSF_EXTI_MODE_NONE
- *  - VSF_EXTI_MODE_EDGE_RISING
- *  - VSF_EXTI_MODE_EDGE_FALLING
- *  - VSF_EXTI_MODE_EDGE_RISING_FALLING
+ *  - VSF_EXTI_MODE_RISING
+ *  - VSF_EXTI_MODE_FALLING
+ *  - VSF_EXTI_MODE_RISING_FALLING
  *
  * \~english
  *  Optional features require one or more enumeration options and a macro with the same
@@ -241,7 +241,7 @@ typedef uint32_t vsf_exti_channel_mask_t;
  *
  * ```c
  * vsf_exti_channel_cfg_t cfg = {
- *     .mode = VSF_EXTI_EDGE_RISING_FALLING,
+ *     .mode = VSF_EXTI_RISING_FALLING,
  *     ...
  * };
  * vsf_exti_channel_mask channel_mask = 0x00000001;
@@ -279,7 +279,7 @@ typedef enum vsf_exti_mode_t {
      * \~chinese
      * @brief 在信号上升沿和下降沿检测中断。
      */
-    VSF_EXTI_MODE_EDGE_RISING_FALLING   = VSF_EXTI_MODE_RISING | VSF_EXTI_MODE_FALLING,
+    VSF_EXTI_MODE_RISING_FALLING        = VSF_EXTI_MODE_RISING | VSF_EXTI_MODE_FALLING,
 
     /**
      * \~english

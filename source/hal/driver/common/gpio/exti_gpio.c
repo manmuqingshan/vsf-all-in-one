@@ -301,6 +301,44 @@ vsf_err_t vsf_exti_gpio_exti_irq_disable(vsf_exti_gpio_t *exti_gpio_ptr,
     return vsf_gpio_exti_irq_disable(exti_gpio_ptr->distributor.gpio, pin_mask);
 }
 
+vsf_err_t vsf_exti_gpio_config_mode(vsf_exti_gpio_t *exti_gpio_ptr,
+                                    vsf_gpio_pin_mask_t pin_mask,
+                                    vsf_gpio_mode_t mode)
+{
+    VSF_HAL_ASSERT(exti_gpio_ptr != NULL);
+    VSF_HAL_ASSERT(exti_gpio_ptr->distributor.gpio != NULL);
+
+    vsf_gpio_t *gpio_ptr = exti_gpio_ptr->distributor.gpio;
+    vsf_gpio_mode_t new_exti_mode = mode & VSF_GPIO_EXTI_MODE_MASK;
+
+    __vsf_gpio_irq_mask_t pending_pin_mask = {
+        .value = pin_mask,
+    };
+    while (pending_pin_mask.value != 0) {
+        uint_fast8_t pin = __vsf_gpio_irq_get_next_pin(&pending_pin_mask);
+        vsf_gpio_cfg_t cfg;
+        vsf_err_t err = vsf_gpio_get_pin_configuration(gpio_ptr, pin, &cfg);
+        if (err != VSF_ERR_NONE) {
+            return err;
+        }
+        cfg.mode = (cfg.mode & ~(vsf_gpio_mode_t)VSF_GPIO_EXTI_MODE_MASK) | new_exti_mode;
+        err = vsf_gpio_port_config_pins(gpio_ptr, (vsf_gpio_pin_mask_t)1 << pin, &cfg);
+        if (err != VSF_ERR_NONE) {
+            return err;
+        }
+    }
+    return VSF_ERR_NONE;
+}
+
+vsf_err_t vsf_exti_gpio_ctrl(vsf_exti_gpio_t *exti_gpio_ptr,
+                             vsf_gpio_ctrl_t ctrl, void *param)
+{
+    VSF_HAL_ASSERT(exti_gpio_ptr != NULL);
+    VSF_HAL_ASSERT(exti_gpio_ptr->distributor.gpio != NULL);
+
+    return vsf_gpio_ctrl(exti_gpio_ptr->distributor.gpio, ctrl, param);
+}
+
 
 /*============================ GLOBAL VARIABLES ==============================*/
 
@@ -317,6 +355,7 @@ vsf_err_t vsf_exti_gpio_exti_irq_disable(vsf_exti_gpio_t *exti_gpio_ptr,
 #define VSF_GPIO_CFG_REIMPLEMENT_API_SET_OUTPUT             ENABLED
 #define VSF_GPIO_CFG_REIMPLEMENT_API_PORTS_CONFIG_PINS      ENABLED
 #define VSF_GPIO_CFG_REIMPLEMENT_API_PORTS_CONFIG_PIN       ENABLED
+#define VSF_GPIO_CFG_REIMPLEMENT_API_CTRL                   ENABLED
 #define VSF_GPIO_CFG_IMP_PREFIX                             vsf_exti
 #define VSF_GPIO_CFG_IMP_UPCASE_PREFIX                      VSF_EXTI
 #define VSF_GPIO_CFG_IMP_EXTERN_OP                          ENABLED
