@@ -615,6 +615,48 @@ typedef enum vsf_timer_ctrl_t {
     //!       (VSF_TIMER_CFG_REIMPLEMENT_TYPE_CTRL == ENABLED)，只要定义了至少一个实际命令，
     //!       就可以删除此 DUMMY 值。
     __VSF_TIMER_CTRL_DUMMY = 0,
+
+    // ------------------------------------------------------------------------
+    // Optional members (documented only, not defined here).
+    // Concrete hardware drivers may add the following commands by enabling
+    // VSF_TIMER_CFG_REIMPLEMENT_TYPE_CTRL and redefining vsf_timer_ctrl_t,
+    // together with a same-name macro so callers can probe support via #ifdef.
+    // They are optional because each command is only meaningful when the
+    // underlying hardware exhibits a specific constraint; drivers without
+    // that constraint should simply omit the command.
+    //
+    //   VSF_TIMER_CTRL_GET_FREQ
+    //     Purpose       : return the actual tick frequency chosen by
+    //                     vsf_timer_init when the divider is discrete and
+    //                     cannot exactly honour the requested min_freq.
+    //     Param         : uint32_t * (out) - receives the actual tick freq in Hz.
+    //     Returns       : VSF_ERR_NONE on success;
+    //                     VSF_ERR_NOT_READY if init has not been called;
+    //                     VSF_ERR_NOT_SUPPORT when the driver does not
+    //                     implement the command.
+    //     Applicability : timer/PWM drivers whose picked tick may overshoot
+    //                     min_freq due to non-continuous divider steps;
+    //                     drivers that can always match min_freq exactly
+    //                     do not need this command.
+    //
+    // 可选成员（仅文档化，这里不定义）。
+    // 具体硬件驱动可通过启用 VSF_TIMER_CFG_REIMPLEMENT_TYPE_CTRL 并重新
+    // 定义 vsf_timer_ctrl_t 来增加以下命令，并提供同名宏以便调用方通过
+    // #ifdef 在编译期探测是否支持。之所以为可选，是因为每条命令仅在
+    // 底层硬件存在特定约束时才有意义；不具备该约束的驱动直接省略即可。
+    //
+    //   VSF_TIMER_CTRL_GET_FREQ
+    //     用途         : 当分频器档位离散、无法精确命中调用方请求的
+    //                    min_freq 时，返回 vsf_timer_init 实际选中的
+    //                    tick 频率。
+    //     参数         : uint32_t *（输出） - 接收实际 tick 频率（单位 Hz）。
+    //     返回值       : 成功返回 VSF_ERR_NONE；
+    //                    未初始化返回 VSF_ERR_NOT_READY；
+    //                    驱动未实现此命令时返回 VSF_ERR_NOT_SUPPORT。
+    //     适用场景     : 由于分频档位非连续、实际 tick 可能高于 min_freq
+    //                    的 timer/PWM 驱动；能精确命中 min_freq 的驱动
+    //                    无需实现此命令。
+    // ------------------------------------------------------------------------
 } vsf_timer_ctrl_t;
 #endif
 

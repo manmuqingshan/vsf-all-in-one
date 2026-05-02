@@ -820,6 +820,87 @@ typedef enum vsf_gpio_ctrl_t {
     //!       (VSF_GPIO_CFG_REIMPLEMENT_TYPE_CTRL == ENABLED)，只要定义了至少一个实际命令，
     //!       就可以删除此 DUMMY 值。
     __VSF_GPIO_CTRL_DUMMY = 0,
+
+    // ------------------------------------------------------------------------
+    // Optional members (documented only, not defined here).
+    // Concrete hardware drivers may add the following commands by enabling
+    // VSF_GPIO_CFG_REIMPLEMENT_TYPE_CTRL and redefining vsf_gpio_ctrl_t,
+    // together with a same-name macro so callers can probe support via #ifdef.
+    // They are optional because each command is only meaningful when the
+    // underlying hardware exhibits a specific constraint; drivers without
+    // that constraint should simply omit the command.
+    //
+    //   VSF_GPIO_CTRL_EXTI_GET_STATUS
+    //     Purpose       : read which pins on this GPIO port currently have a
+    //                     pending EXTI (external interrupt) latch, so that
+    //                     glue layers such as gpio_to_exti can implement
+    //                     vsf_exti_status without adding a dedicated public
+    //                     GPIO API.
+    //     Param         : vsf_gpio_pin_mask_t * (out) - receives the pending
+    //                     pin mask.
+    //     Returns       : VSF_ERR_NONE on success;
+    //                     VSF_ERR_NOT_SUPPORT when the driver does not
+    //                     implement the command.
+    //     Applicability : GPIO controllers whose EXTI pending status is
+    //                     aggregated per port and exposed through the same
+    //                     register block as GPIO; platforms with a dedicated
+    //                     EXTI IP block that already carries its own status
+    //                     API do not need this command.
+    //
+    //   VSF_GPIO_CTRL_EXTI_TRIGGER
+    //     Purpose       : software-trigger EXTI on the given pins, i.e. force
+    //                     the EXTI pending latch to assert as if the pin had
+    //                     seen an external edge/level. Consumed by the
+    //                     gpio_to_exti glue layer to back vsf_exti_trigger
+    //                     and report cap.support_sw_trigger=1; the glue uses
+    //                     #ifdef on this macro to compile-time gate the
+    //                     feature.
+    //     Param         : vsf_gpio_pin_mask_t * (in) - mask of pins to trigger.
+    //     Returns       : VSF_ERR_NONE on success;
+    //                     VSF_ERR_NOT_SUPPORT when the driver does not
+    //                     implement the command.
+    //     Applicability : GPIO/EXTI controllers that provide a software-
+    //                     trigger register (e.g. an SWIER-style latch set
+    //                     bit) reachable from the GPIO register block;
+    //                     platforms without such a register cannot honour
+    //                     the request and MUST omit both the enum member
+    //                     and the same-name macro so that the #ifdef guard
+    //                     disables the capability.
+    //
+    // 可选成员（仅文档化，这里不定义）。
+    // 具体硬件驱动可通过启用 VSF_GPIO_CFG_REIMPLEMENT_TYPE_CTRL 并重新
+    // 定义 vsf_gpio_ctrl_t 来增加以下命令，并提供同名宏以便调用方通过
+    // #ifdef 在编译期探测是否支持。之所以为可选，是因为每条命令仅在
+    // 底层硬件存在特定约束时才有意义；不具备该约束的驱动直接省略即可。
+    //
+    //   VSF_GPIO_CTRL_EXTI_GET_STATUS
+    //     用途         : 读取当前 GPIO 口上哪些引脚存在未处理的 EXTI
+    //                    （外部中断）挂起标志，供 gpio_to_exti 等胶水层
+    //                    在不引入专用公开 GPIO API 的前提下实现
+    //                    vsf_exti_status。
+    //     参数         : vsf_gpio_pin_mask_t *（输出） - 接收挂起的
+    //                    引脚掩码。
+    //     返回值       : 成功返回 VSF_ERR_NONE；
+    //                    驱动未实现此命令时返回 VSF_ERR_NOT_SUPPORT。
+    //     适用场景     : EXTI 挂起状态按 port 聚合、且寄存器块与 GPIO
+    //                    共用的控制器；若平台有独立的 EXTI IP 且自带
+    //                    status API，则不必实现此命令。
+    //
+    //   VSF_GPIO_CTRL_EXTI_TRIGGER
+    //     用途         : 对指定引脚软件触发 EXTI，使对应 pending latch
+    //                    如同外部边沿/电平到来一样置位。由 gpio_to_exti
+    //                    胶水层用于实现 vsf_exti_trigger、并据此把
+    //                    capability.support_sw_trigger 置为 1；胶水层
+    //                    通过 #ifdef 此宏在编译期判断是否启用该能力。
+    //     参数         : vsf_gpio_pin_mask_t *（输入） - 要触发的引脚掩码。
+    //     返回值       : 成功返回 VSF_ERR_NONE；
+    //                    驱动未实现此命令时返回 VSF_ERR_NOT_SUPPORT。
+    //     适用场景     : GPIO/EXTI 控制器提供软件触发寄存器（如 SWIER
+    //                    那样的挂起置位位），且该寄存器可从 GPIO 寄存器
+    //                    块访问；若平台没有这种寄存器，则不能实现该命令，
+    //                    必须同时省略枚举成员与同名宏，使 #ifdef 保护
+    //                    自动关闭该能力。
+    // ------------------------------------------------------------------------
 } vsf_gpio_ctrl_t;
 #endif
 
