@@ -59,26 +59,36 @@ extern "C" {
 /*
  * Generic hw PWM instance that maps every call onto a vsf_timer_t.
  *
- * .timer:   pointer to the underlying timer class instance (cast from the
- *           concrete vsf_hw_timer_t* on init-time). Uses vsf_timer_t so the
- *           glue stays chip-agnostic and goes through the dispatcher.
- *           REQUIRES VSF_TIMER_CFG_MULTI_CLASS == ENABLED.
- * .channel: timer channel bound to this PWM instance (0 for most chips).
- * .cfg:     cached user config (for get_configuration).
- * .period:  cached full period in timer ticks, written by pwm_set(), used by
- *           pwm_enable() to re-arm after a stop/enable cycle.
+ * One vsf_hw_pwm_t corresponds to ONE underlying timer (i.e. one PWM
+ * controller). Per-channel operations are driven by the `channel` argument
+ * of vsf_pwm_set(); this struct does NOT bind itself to a single channel.
+ *
+ * .timer:           pointer to the underlying timer class instance (cast from
+ *                   the concrete vsf_hw_timer_t* on init-time). Uses
+ *                   vsf_timer_t so the glue stays chip-agnostic and goes
+ *                   through the dispatcher.
+ *                   REQUIRES VSF_TIMER_CFG_MULTI_CLASS == ENABLED.
+ * .cfg:             cached user config (for get_configuration).
+ * .period:          period currently programmed on the timer (in timer ticks).
+ *                   0 = not locked yet by any pwm_set(). Timer hardware has
+ *                   a single period register shared by all channels, so all
+ *                   active channels on this instance must share this value.
+ * .configured_mask: bitmask of channels that have been configured by a
+ *                   previous pwm_set(). Used by pwm_enable()/pwm_disable()
+ *                   to iterate, and by pwm_set() to detect frequency
+ *                   conflicts across channels.
+ * .enabled:         latched state of pwm_enable()/pwm_disable(). A pwm_set()
+ *                   on a new channel will auto-start it when .enabled is true.
  */
 typedef struct vsf_hw_pwm_t {
 #if VSF_HW_PWM_CFG_MULTI_CLASS == ENABLED
     vsf_pwm_t           vsf_pwm;
 #endif
     vsf_timer_t        *timer;
-    uint8_t             channel;
-    bool                enabled;
-    bool                configured;
     vsf_pwm_cfg_t       cfg;
     uint32_t            period;
-    uint32_t            pulse;
+    uint32_t            configured_mask;
+    bool                enabled;
 } vsf_hw_pwm_t;
 
 /*============================ MACROFIED FUNCTIONS ===========================*/
@@ -86,15 +96,14 @@ typedef struct vsf_hw_pwm_t {
 /*
  * Default per-instance initializer used by timer_to_pwm.inc when the caller
  * does not override VSF_PWM_CFG_IMP_LV0. Assumes "PWMx <-> TIMx" one-to-one
- * mapping and channel 0. Override VSF_PWM_CFG_IMP_LV0 before including
- * timer_to_pwm.inc if a different mapping is needed.
+ * mapping. Channel is not bound at compile time; it is supplied by the
+ * caller via vsf_pwm_set()'s channel argument. Override
+ * VSF_PWM_CFG_IMP_LV0 before including timer_to_pwm.inc if a different
+ * mapping is needed.
  */
 #ifndef VSF_TIMER_TO_PWM_DEFAULT_TIMER
 #   define VSF_TIMER_TO_PWM_DEFAULT_TIMER(__IDX) \
         (vsf_timer_t *)&VSF_MCONNECT(vsf_hw_timer, __IDX)
-#endif
-#ifndef VSF_TIMER_TO_PWM_DEFAULT_CHANNEL
-#   define VSF_TIMER_TO_PWM_DEFAULT_CHANNEL(__IDX) 0
 #endif
 
 #ifdef __cplusplus
