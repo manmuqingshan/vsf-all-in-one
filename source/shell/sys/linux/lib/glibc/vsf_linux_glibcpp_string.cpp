@@ -1,3 +1,7 @@
+#include "shell/sys/linux/vsf_linux_cfg.h"
+
+#if VSF_USE_LINUX == ENABLED
+
 #include <string>
 
 namespace std {
@@ -103,3 +107,5 @@ namespace std {
 
     // stox
 };
+
+#endif      // VSF_USE_LINUX

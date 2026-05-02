@@ -1,3 +1,7 @@
+#include "shell/sys/linux/vsf_linux_cfg.h"
+
+#if VSF_USE_LINUX == ENABLED
+
 #include <unistd.h>
 #include <thread>
 #include <cmath>
@@ -161,3 +165,5 @@ void operator delete[](void *ptr)
 {
     free(ptr);
 }
+
+#endif      // VSF_USE_LINUX
