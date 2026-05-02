@@ -142,8 +142,18 @@ static uint_fast32_t __vsf_x86_debug_stream_tx_write(vsf_stream_t *stream,
             uint8_t *buf, uint_fast32_t size)
 {
 #       if VSF_ARCH_CFG_HIDE_CONSOLE != ENABLED
-    DWORD wsize;
-    WriteConsoleA(GetStdHandle(STD_OUTPUT_HANDLE), buf, size, &wsize, NULL);
+    // Dispatch by handle type: WriteConsoleA only works on a real console
+    // screen buffer. When stdout is redirected to a file/pipe (e.g. `exe > log`,
+    // Start-Process -RedirectStandardOutput, Start-Job), GetConsoleMode returns
+    // 0 and WriteConsoleA fails; fall back to WriteFile so the bytes land in
+    // the redirected target. Verified on Windows 25H2 with a dedicated probe.
+    HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD wsize = 0, mode;
+    if (GetConsoleMode(h, &mode)) {
+        WriteConsoleA(h, buf, size, &wsize, NULL);
+    } else {
+        WriteFile(h, buf, size, &wsize, NULL);
+    }
     return wsize;
 #       else
     return size;
