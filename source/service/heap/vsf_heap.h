@@ -124,11 +124,15 @@ extern "C" {
 typedef struct vsf_heap_statistics_t {
     uint32_t all_size;
     uint32_t used_size;
-    // Historical peak of used_size since heap init. Allows callers (e.g.
-    // FreeRTOS xPortGetMinimumEverFreeHeapSize, ESP-IDF
-    // heap_caps_get_minimum_free_size) to derive the minimum-ever free
-    // size as (all_size - max_used_size).
+    // Historical peak of used_size since heap init. Lets callers derive
+    // the minimum-ever free size as (all_size - max_used_size), which is
+    // useful for low-water / worst-case headroom diagnostics.
     uint32_t max_used_size;
+    // Size (in bytes, MCB header included) of the largest contiguous
+    // free block at the moment of the statistics call. Computed lazily
+    // by scanning the freelist -- intended for diagnostic paths only,
+    // e.g. fragmentation reporting or pre-allocation feasibility checks.
+    uint32_t largest_free_block;
 } vsf_heap_statistics_t;
 #endif
 

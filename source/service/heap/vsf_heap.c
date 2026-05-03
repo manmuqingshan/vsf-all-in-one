@@ -633,6 +633,28 @@ void __vsf_heap_statistics(vsf_heap_t *heap, vsf_heap_statistics_t *statistics)
     if (statistics != NULL) {
         vsf_protect_t state = __vsf_heap_protect();
             *statistics = heap->statistics;
+            // freelist buckets are ordered by size range (bucket[0] holds
+            // the smallest free blocks, bucket[freelist_num-1] the largest).
+            // Scan from the top down: the first non-empty bucket must
+            // contain the current largest free block, so we only need to
+            // walk that bucket to pick the max and then stop.
+            uint32_t largest = 0;
+            for (int_fast8_t i = (int_fast8_t)heap->freelist_num - 1; i >= 0; i--) {
+                vsf_heap_mcb_t *mcb;
+                vsf_dlist_peek_head(vsf_heap_mcb_t, node, &heap->freelist[i], mcb);
+                if (mcb == NULL) {
+                    continue;
+                }
+                while (mcb != NULL) {
+                    uint_fast32_t sz = __vsf_heap_mcb_get_size(mcb);
+                    if (sz > largest) {
+                        largest = (uint32_t)sz;
+                    }
+                    vsf_dlist_peek_next(vsf_heap_mcb_t, node, mcb, mcb);
+                }
+                break;
+            }
+            statistics->largest_free_block = largest;
         __vsf_heap_unprotect(state);
     }
 }
@@ -845,9 +867,16 @@ void vsf_heap_statistics(vsf_heap_statistics_t *statistics)
     statistics->used_size = arch_heap_statistics.used_size;
     // arch heap backends do not currently track the historical peak.
     // Report the current used_size as a conservative upper bound so that
-    // "minimum ever free" estimators still produce a safe (non-negative)
-    // value. Tighten once arch heaps expose their own peak.
+    // callers computing (all_size - max_used_size) still get a safe
+    // (non-negative) value. Tighten once arch heaps expose their own peak.
     statistics->max_used_size = arch_heap_statistics.used_size;
+    // arch heap backends do not expose freelist internals either. Report
+    // the total free size as a (loose) upper bound for the largest free
+    // block so diagnostic code keeps working. Tighten once arch heaps
+    // expose a real largest-free-block query.
+    statistics->largest_free_block = (arch_heap_statistics.all_size > arch_heap_statistics.used_size)
+            ? (arch_heap_statistics.all_size - arch_heap_statistics.used_size)
+            : 0;
 #   else
     __vsf_heap_statistics(&__vsf_heap.use_as__vsf_heap_t, statistics);
 #   endif
