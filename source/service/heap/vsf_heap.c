@@ -321,6 +321,9 @@ static void * __vsf_heap_mcb_malloc(vsf_heap_t *heap, vsf_heap_mcb_t *mcb,
         __vsf_heap_mcb_truncate(heap, mcb_new, (uintptr_t)buffer + size);
 #if VSF_HEAP_CFG_STATISTICS == ENABLED
         heap->statistics.used_size += __vsf_heap_mcb_get_size(mcb_new);
+        if (heap->statistics.used_size > heap->statistics.max_used_size) {
+            heap->statistics.max_used_size = heap->statistics.used_size;
+        }
 #endif
         return buffer;
     }
@@ -502,6 +505,9 @@ void * __vsf_heap_realloc_aligned(vsf_heap_t *heap, void *buffer, uint_fast32_t 
 #if VSF_HEAP_CFG_STATISTICS == ENABLED
         heap->statistics.used_size -= mcb_size;
         heap->statistics.used_size += __vsf_heap_mcb_get_size(mcb);
+        if (heap->statistics.used_size > heap->statistics.max_used_size) {
+            heap->statistics.max_used_size = heap->statistics.used_size;
+        }
 #endif
         __vsf_heap_unprotect(state);
         return buffer;
@@ -530,6 +536,9 @@ void * __vsf_heap_realloc_aligned(vsf_heap_t *heap, void *buffer, uint_fast32_t 
 #if VSF_HEAP_CFG_STATISTICS == ENABLED
             heap->statistics.used_size -= mcb_size;
             heap->statistics.used_size += __vsf_heap_mcb_get_size(mcb);
+            if (heap->statistics.used_size > heap->statistics.max_used_size) {
+                heap->statistics.max_used_size = heap->statistics.used_size;
+            }
 #endif
             __vsf_heap_unprotect(state);
             return buffer;
@@ -834,6 +843,11 @@ void vsf_heap_statistics(vsf_heap_statistics_t *statistics)
     vsf_arch_heap_statistics(&arch_heap_statistics);
     statistics->all_size = arch_heap_statistics.all_size;
     statistics->used_size = arch_heap_statistics.used_size;
+    // arch heap backends do not currently track the historical peak.
+    // Report the current used_size as a conservative upper bound so that
+    // "minimum ever free" estimators still produce a safe (non-negative)
+    // value. Tighten once arch heaps expose their own peak.
+    statistics->max_used_size = arch_heap_statistics.used_size;
 #   else
     __vsf_heap_statistics(&__vsf_heap.use_as__vsf_heap_t, statistics);
 #   endif

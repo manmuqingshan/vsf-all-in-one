@@ -124,6 +124,11 @@ extern "C" {
 typedef struct vsf_heap_statistics_t {
     uint32_t all_size;
     uint32_t used_size;
+    // Historical peak of used_size since heap init. Allows callers (e.g.
+    // FreeRTOS xPortGetMinimumEverFreeHeapSize, ESP-IDF
+    // heap_caps_get_minimum_free_size) to derive the minimum-ever free
+    // size as (all_size - max_used_size).
+    uint32_t max_used_size;
 } vsf_heap_statistics_t;
 #endif
 
