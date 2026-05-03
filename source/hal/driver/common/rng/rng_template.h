@@ -51,3 +51,7 @@
 #undef VSF_RNG_CFG_DEC_COUNT_MASK_PREFIX
 #undef VSF_RNG_CFG_DEC_REMAP_PREFIX
 #undef VSF_RNG_CFG_DEC_EXTERN_OP
+
+/*============================ INCLUDES ======================================*/
+
+#include "hal/driver/common/rng/multiplex_rng.h"

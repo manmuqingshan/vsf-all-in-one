@@ -41,6 +41,7 @@ extern "C" {
 #    include "hal/driver/common/spi/fifo2req_spi.h"
 #    include "hal/driver/common/spi/multiplex_spi.h"
 #    include "hal/driver/common/spi/spi_interface.h"
+#    include "hal/driver/common/rng/multiplex_rng.h"
 #    include "hal/driver/common/usart/fifo2req_usart.h"
 #    include "hal/driver/common/usart/usart_interface.h"
 
