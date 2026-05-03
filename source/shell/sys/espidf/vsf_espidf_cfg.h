@@ -60,7 +60,7 @@
 
 // Core infrastructure
 #ifndef VSF_ESPIDF_CFG_USE_LOG
-#   define VSF_ESPIDF_CFG_USE_LOG               DISABLED
+#   define VSF_ESPIDF_CFG_USE_LOG               ENABLED
 #endif
 #ifndef VSF_ESPIDF_CFG_USE_ERR
 #   define VSF_ESPIDF_CFG_USE_ERR               ENABLED
@@ -69,16 +69,16 @@
 #   define VSF_ESPIDF_CFG_USE_EVENT             DISABLED
 #endif
 #ifndef VSF_ESPIDF_CFG_USE_TIMER
-#   define VSF_ESPIDF_CFG_USE_TIMER             DISABLED
+#   define VSF_ESPIDF_CFG_USE_TIMER             ENABLED
 #endif
 #ifndef VSF_ESPIDF_CFG_USE_SYSTEM
-#   define VSF_ESPIDF_CFG_USE_SYSTEM            DISABLED
+#   define VSF_ESPIDF_CFG_USE_SYSTEM            ENABLED
 #endif
 #ifndef VSF_ESPIDF_CFG_USE_RINGBUF
-#   define VSF_ESPIDF_CFG_USE_RINGBUF           DISABLED
+#   define VSF_ESPIDF_CFG_USE_RINGBUF           ENABLED
 #endif
 #ifndef VSF_ESPIDF_CFG_USE_HEAP_CAPS
-#   define VSF_ESPIDF_CFG_USE_HEAP_CAPS         DISABLED
+#   define VSF_ESPIDF_CFG_USE_HEAP_CAPS         ENABLED
 #endif
 
 // Storage

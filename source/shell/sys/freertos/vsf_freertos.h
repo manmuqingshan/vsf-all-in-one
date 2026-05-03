@@ -15,16 +15,15 @@
  *                                                                           *
  ****************************************************************************/
 
-#ifndef __VSF_ESPIDF_INTERNAL_H__
-#define __VSF_ESPIDF_INTERNAL_H__
+#ifndef __VSF_FREERTOS_INTERNAL_H__
+#define __VSF_FREERTOS_INTERNAL_H__
 
 /*============================ INCLUDES ======================================*/
 
 #include "kernel/vsf_kernel.h"
-#include "hal/driver/driver.h"
-#include "./vsf_espidf_cfg.h"
+#include "./vsf_freertos_cfg.h"
 
-#if VSF_USE_ESPIDF == ENABLED
+#if VSF_USE_FREERTOS == ENABLED
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,41 +32,19 @@ extern "C" {
 /*============================ MACROS ========================================*/
 /*============================ TYPES =========================================*/
 
-// Sub-system configuration (pure input). The ESP-IDF compatibility shim is
-// a process-wide singleton (esp_* APIs are global functions without an
-// instance handle), so configuration is passed by value: the caller fills
-// a cfg struct, hands it to vsf_espidf_init(), and the shim copies the
-// fields it needs into its own internal state. The cfg object does not
-// need to outlive the init call and may live on the stack.
-//
-// Field semantics:
-//   rng    Externally owned RNG source (commonly a vsf_multiplex_rng_t
-//          instance cast to vsf_rng_t*). NULL -> the shim falls back to a
-//          software PRNG for esp_random / esp_fill_random.
-typedef struct vsf_espidf_cfg_t {
-#if VSF_HAL_USE_RNG == ENABLED
-    vsf_rng_t *rng;
-#endif
-} vsf_espidf_cfg_t;
+typedef struct vsf_freertos_t {
+    bool is_inited;
+} vsf_freertos_t;
 
 /*============================ GLOBAL VARIABLES ==============================*/
 /*============================ PROTOTYPES ====================================*/
 
-// Sub-system lifecycle. Idempotent: subsequent calls are no-ops. Passing
-// NULL is permitted and equivalent to a zero-initialised cfg (all
-// peripherals left unset, shim uses built-in fallbacks).
-extern void vsf_espidf_init(const vsf_espidf_cfg_t *cfg);
-
-#if VSF_HAL_USE_RNG == ENABLED
-// Accessor used by internal port code. Returns the RNG source registered
-// via vsf_espidf_init(), or NULL if none was provided (callers should
-// fall back to their own default).
-extern vsf_rng_t * vsf_espidf_get_rng(void);
-#endif
+// Sub-system lifecycle. Called from user init (once).
+extern void vsf_freertos_init(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif      // VSF_USE_ESPIDF
-#endif      // __VSF_ESPIDF_INTERNAL_H__
+#endif      // VSF_USE_FREERTOS
+#endif      // __VSF_FREERTOS_INTERNAL_H__

@@ -10,14 +10,15 @@
 
 vsf_add_sources(
     esp_err_port.c         # -> pure header + 2 diagnostic helpers
+    esp_log_port.c         # -> service/trace (vsf_trace)
+    esp_timer_port.c       # -> vsf_callback_timer
+    esp_system_port.c      # -> vsf_arch_reset / vsf_heap / PRNG
+    esp_ringbuf_port.c     # -> byte ring buffer on vsf_heap
+    esp_heap_caps_port.c   # -> vsf_heap (caps collapsed, statistics bridged)
 )
 
 # vsf_add_sources(
-#     esp_log_port.c         # -> service/trace (vsf_trace)
 #     esp_event_port.c       # -> kernel/vsf_eda
-#     esp_timer_port.c       # -> kernel/vsf_timq + vsf_callback_timer
-#     esp_system_port.c      # -> reset / reset_reason / esp_random
-#     esp_ringbuf_port.c     # -> service/fifo, service/pbuf
 #     esp_partition_port.c   # -> component/mal
 #     nvs_flash_port.c       # -> partition + littlefs-backed KV
 #     esp_netif_port.c       # -> component/tcpip/netdrv + lwip
