@@ -36,6 +36,12 @@ typedef struct vsf_freertos_t {
     bool is_inited;
 } vsf_freertos_t;
 
+// The task control block used by task / notify ports is now
+// StaticTask_t in include/task.h (vsf_class-based). The vsf_thread_t
+// remains the first private member so that (vsf_thread_t *) and
+// (StaticTask_t *) are bit-wise interchangeable -- xTaskGetCurrentTaskHandle
+// returns vsf_thread_get_cur() and ports cast it back.
+
 /*============================ GLOBAL VARIABLES ==============================*/
 /*============================ PROTOTYPES ====================================*/
 

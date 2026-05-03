@@ -15,10 +15,11 @@ vsf_add_sources(
     esp_system_port.c      # -> vsf_arch_reset / vsf_heap / PRNG
     esp_ringbuf_port.c     # -> byte ring buffer on vsf_heap
     esp_heap_caps_port.c   # -> vsf_heap (caps collapsed, statistics bridged)
+    esp_event_port.c       # -> FreeRTOS shim (xQueue + xTaskCreate)
 )
 
 # vsf_add_sources(
-#     esp_event_port.c       # -> kernel/vsf_eda
+#     esp_event_deprecated.c # placeholder
 #     esp_partition_port.c   # -> component/mal
 #     nvs_flash_port.c       # -> partition + littlefs-backed KV
 #     esp_netif_port.c       # -> component/tcpip/netdrv + lwip

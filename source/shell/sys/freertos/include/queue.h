@@ -39,14 +39,43 @@
 
 #include "FreeRTOS.h"
 
+#if defined(__VSF_FREERTOS_QUEUE_CLASS_IMPLEMENT)
+#   undef __VSF_FREERTOS_QUEUE_CLASS_IMPLEMENT
+#   define __VSF_CLASS_IMPLEMENT__
+#endif
+
+#include "utilities/ooc_class.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /*============================ TYPES =========================================*/
 
-struct QueueDefinition;
-typedef struct QueueDefinition * QueueHandle_t;
+// Forward-declared vsf_class. QueueHandle_t is a StaticQueue_t *; the
+// inline ring cursors, state flags and embedded vsf_eda_queue_t are all
+// private to the implementation (see port/freertos_queue_port.c).
+vsf_dcl_class(StaticQueue_t)
+typedef StaticQueue_t * QueueHandle_t;
+
+vsf_class(StaticQueue_t) {
+    private_member(
+        // vsf_eda_queue_t MUST stay first in the layout: the kernel
+        // walks container_of via the op vtable, which relies on an
+        // offset-0 embedding. `implement()` produces an anonymous
+        // union giving the implementation file transparent access.
+        implement(vsf_eda_queue_t)
+
+        uint16_t    head;           // write cursor (next enqueue slot)
+        uint16_t    tail;           // read cursor  (next dequeue slot)
+        uint16_t    node_num;       // ring capacity in slots
+        uint16_t    node_size;      // bytes per slot
+        bool        is_static;      // control block is user-owned
+        bool        is_storage_static; // item storage is user-owned
+
+        uint8_t *   node_buffer;    // ring storage (heap or user-supplied)
+    )
+};
 
 /*============================ PROTOTYPES ====================================*/
 
@@ -54,6 +83,14 @@ typedef struct QueueDefinition * QueueHandle_t;
 // Returns NULL on failure (invalid args or heap exhaustion).
 extern QueueHandle_t xQueueCreate(UBaseType_t uxQueueLength,
                                   UBaseType_t uxItemSize);
+
+// Zero-heap create. The caller provides BOTH the item storage buffer
+// (uxQueueLength * uxItemSize bytes, any alignment) and the state
+// buffer. Neither is freed by vQueueDelete.
+extern QueueHandle_t xQueueCreateStatic(UBaseType_t uxQueueLength,
+                                        UBaseType_t uxItemSize,
+                                        uint8_t *pucQueueStorage,
+                                        StaticQueue_t *pxQueueBuffer);
 
 // Free a queue. Any pending senders/receivers are woken with failure.
 extern void          vQueueDelete(QueueHandle_t xQueue);

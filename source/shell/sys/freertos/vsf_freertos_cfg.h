@@ -71,6 +71,23 @@
 #ifndef VSF_FREERTOS_CFG_USE_EVENT_GROUPS
 #   define VSF_FREERTOS_CFG_USE_EVENT_GROUPS    DISABLED
 #endif
+// Task notification primitives (xTaskNotify / ulTaskNotifyTake / ...).
+// Allocates one vsf_sem_t plus two words per task.
+#ifndef VSF_FREERTOS_CFG_USE_NOTIFY
+#   define VSF_FREERTOS_CFG_USE_NOTIFY          DISABLED
+#endif
+// Stream buffers + message buffers (xStreamBufferSend / xMessageBufferSend).
+#ifndef VSF_FREERTOS_CFG_USE_STREAM_BUFFER
+#   define VSF_FREERTOS_CFG_USE_STREAM_BUFFER   DISABLED
+#endif
+// Critical section & scheduler-suspend primitives
+// (vTaskEnterCritical / vTaskSuspendAll / portENTER_CRITICAL / ...).
+// portmacro.h unconditionally exposes the macros; this switch gates
+// the port implementation. Defaults to ENABLED because ESP-IDF code
+// heavily relies on taskENTER_CRITICAL() being callable.
+#ifndef VSF_FREERTOS_CFG_USE_CRITICAL
+#   define VSF_FREERTOS_CFG_USE_CRITICAL        ENABLED
+#endif
 
 // Default priority used when FreeRTOS task priorities are mapped to VSF
 // priorities. FreeRTOS priorities are numerical (0..configMAX_PRIORITIES-1)

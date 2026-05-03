@@ -38,6 +38,7 @@
 
 #if VSF_USE_FREERTOS == ENABLED && VSF_FREERTOS_CFG_USE_TASK == ENABLED
 
+#define __VSF_FREERTOS_TASK_CLASS_IMPLEMENT
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -55,29 +56,22 @@
 
 /*============================ TYPES =========================================*/
 
-typedef struct __freertos_task_t {
-    vsf_thread_t        thread;
-#if VSF_KERNEL_CFG_EDA_SUPPORT_SUB_CALL == ENABLED
-    vsf_thread_cb_t     thread_cb;
-#endif
-    TaskFunction_t      entry;
-    void *              arg;
-    void *              stack;
-    uint32_t            stack_bytes;
-} __freertos_task_t;
+// StaticTask_t is the task control block (see include/task.h). It is
+// shared with the notify port, which relies on the same vsf_thread_t
+// first-member invariant.
 
 /*============================ IMPLEMENTATION ================================*/
 
 #if VSF_KERNEL_CFG_EDA_SUPPORT_SUB_CALL == ENABLED
 static void __freertos_task_wrapper(vsf_thread_cb_t *cb)
 {
-    __freertos_task_t *ft = (__freertos_task_t *)
-        ((uint8_t *)cb - offsetof(__freertos_task_t, thread_cb));
+    StaticTask_t *ft = (StaticTask_t *)
+        ((uint8_t *)cb - offsetof(StaticTask_t, thread_cb));
     if (ft->entry != NULL) {
         ft->entry(ft->arg);
     }
     // FreeRTOS contract forbids returning from a task body; if it happens,
-    // terminate the vsf_thread cleanly. The __freertos_task_t backing
+    // terminate the vsf_thread cleanly. The StaticTask_t backing
     // storage is intentionally leaked in the MVP (self-cleanup would race
     // with the scheduler that is still referencing our fields).
     vsf_thread_exit();
@@ -85,8 +79,8 @@ static void __freertos_task_wrapper(vsf_thread_cb_t *cb)
 #else
 static void __freertos_task_wrapper(vsf_thread_t *t)
 {
-    __freertos_task_t *ft = (__freertos_task_t *)
-        ((uint8_t *)t - offsetof(__freertos_task_t, thread));
+    StaticTask_t *ft = (StaticTask_t *)
+        ((uint8_t *)t - offsetof(StaticTask_t, thread));
     if (ft->entry != NULL) {
         ft->entry(ft->arg);
     }
@@ -131,6 +125,54 @@ void vTaskYield(void)
     vsf_thread_yield();
 }
 
+// Normalise usStackDepth against the VSF kernel's page/guardian alignment
+// rules. Returns the (possibly grown / rounded) byte count to hand to
+// vsf_thread_start. For dynamic creates we're free to grow the caller's
+// request; for static creates the caller owns the buffer so this must be
+// used as a strict validator (see xTaskCreateStatic).
+static uint32_t __frt_task_round_stack(uint32_t stack_bytes)
+{
+    if (stack_bytes < VSF_FREERTOS_CFG_MIN_STACK_BYTES) {
+        stack_bytes = VSF_FREERTOS_CFG_MIN_STACK_BYTES;
+    }
+    uint32_t page = (uint32_t)VSF_KERNEL_CFG_THREAD_STACK_PAGE_SIZE;
+    uint32_t guard = (uint32_t)VSF_KERNEL_CFG_THREAD_STACK_GUARDIAN_SIZE;
+    uint32_t min_bytes = page + guard;
+    if (stack_bytes < min_bytes) {
+        stack_bytes = min_bytes;
+    }
+    // round up to page boundary then 8-byte align.
+    stack_bytes = (stack_bytes + (page - 1u)) & ~(page - 1u);
+    stack_bytes = (stack_bytes + 7u) & ~7u;
+    return stack_bytes;
+}
+
+// Wire up the pre-populated StaticTask_t fields and spawn the
+// underlying vsf_thread worker. `ft->entry/arg/stack/stack_bytes` and
+// ownership flags must already be set by the caller.
+static vsf_err_t __frt_task_spawn(StaticTask_t *ft)
+{
+#if VSF_FREERTOS_CFG_USE_NOTIFY == ENABLED
+    vsf_eda_sem_init(&ft->notify_sem, 0, 1);
+    ft->notify_value   = 0;
+    ft->notify_pending = false;
+#endif
+
+#if VSF_KERNEL_CFG_EDA_SUPPORT_SUB_CALL == ENABLED
+    ft->thread_cb.entry      = (vsf_thread_entry_t *)__freertos_task_wrapper;
+    ft->thread_cb.stack      = ft->stack;
+    ft->thread_cb.stack_size = ft->stack_bytes;
+    return vsf_thread_start(&ft->thread, &ft->thread_cb,
+                            VSF_FREERTOS_CFG_DEFAULT_VSF_PRIO);
+#else
+    ft->thread.entry      = (vsf_thread_entry_t *)__freertos_task_wrapper;
+    ft->thread.stack      = ft->stack;
+    ft->thread.stack_size = ft->stack_bytes;
+    return vsf_thread_start(&ft->thread,
+                            VSF_FREERTOS_CFG_DEFAULT_VSF_PRIO);
+#endif
+}
+
 BaseType_t xTaskCreate(TaskFunction_t pxTaskCode,
                        const char * const pcName,
                        const uint32_t usStackDepth,
@@ -146,27 +188,10 @@ BaseType_t xTaskCreate(TaskFunction_t pxTaskCode,
         return pdFAIL;
     }
 
-    uint32_t stack_bytes = usStackDepth;
-    if (stack_bytes < VSF_FREERTOS_CFG_MIN_STACK_BYTES) {
-        stack_bytes = VSF_FREERTOS_CFG_MIN_STACK_BYTES;
-    }
-    // vsf_thread_start requires stack_size >= PAGE_SIZE + GUARDIAN_SIZE
-    // and aligned to PAGE_SIZE. Grow / align to satisfy both.
-    {
-        uint32_t page = (uint32_t)VSF_KERNEL_CFG_THREAD_STACK_PAGE_SIZE;
-        uint32_t guard = (uint32_t)VSF_KERNEL_CFG_THREAD_STACK_GUARDIAN_SIZE;
-        uint32_t min_bytes = page + guard;
-        if (stack_bytes < min_bytes) {
-            stack_bytes = min_bytes;
-        }
-        // round up to page boundary
-        stack_bytes = (stack_bytes + (page - 1u)) & ~(page - 1u);
-    }
-    // 8-byte align as required by vsf_thread (stack is uint64_t[]-backed).
-    stack_bytes = (stack_bytes + 7u) & ~7u;
+    uint32_t stack_bytes = __frt_task_round_stack(usStackDepth);
 
-    __freertos_task_t *ft =
-        (__freertos_task_t *)vsf_heap_malloc(sizeof(*ft));
+    StaticTask_t *ft =
+        (StaticTask_t *)vsf_heap_malloc(sizeof(*ft));
     if (ft == NULL) {
         if (pxCreatedTask != NULL) { *pxCreatedTask = NULL; }
         return pdFAIL;
@@ -178,24 +203,14 @@ BaseType_t xTaskCreate(TaskFunction_t pxTaskCode,
         return pdFAIL;
     }
     memset(ft, 0, sizeof(*ft));
-    ft->entry       = pxTaskCode;
-    ft->arg         = pvParameters;
-    ft->stack       = stack;
-    ft->stack_bytes = stack_bytes;
+    ft->entry           = (void (*)(void *))pxTaskCode;
+    ft->arg             = pvParameters;
+    ft->stack           = stack;
+    ft->stack_bytes     = stack_bytes;
+    ft->is_static       = false;
+    ft->is_stack_static = false;
 
-#if VSF_KERNEL_CFG_EDA_SUPPORT_SUB_CALL == ENABLED
-    ft->thread_cb.entry      = (vsf_thread_entry_t *)__freertos_task_wrapper;
-    ft->thread_cb.stack      = stack;
-    ft->thread_cb.stack_size = stack_bytes;
-    vsf_err_t err = vsf_thread_start(&ft->thread, &ft->thread_cb,
-                                     VSF_FREERTOS_CFG_DEFAULT_VSF_PRIO);
-#else
-    ft->thread.entry      = (vsf_thread_entry_t *)__freertos_task_wrapper;
-    ft->thread.stack      = stack;
-    ft->thread.stack_size = stack_bytes;
-    vsf_err_t err = vsf_thread_start(&ft->thread,
-                                     VSF_FREERTOS_CFG_DEFAULT_VSF_PRIO);
-#endif
+    vsf_err_t err = __frt_task_spawn(ft);
     if (err != VSF_ERR_NONE) {
         vsf_heap_free(stack);
         vsf_heap_free(ft);
@@ -205,6 +220,61 @@ BaseType_t xTaskCreate(TaskFunction_t pxTaskCode,
 
     if (pxCreatedTask != NULL) { *pxCreatedTask = (TaskHandle_t)ft; }
     return pdPASS;
+}
+
+TaskHandle_t xTaskCreateStatic(TaskFunction_t pxTaskCode,
+                               const char * const pcName,
+                               const uint32_t ulStackDepth,
+                               void * const pvParameters,
+                               UBaseType_t uxPriority,
+                               StackType_t * const puxStackBuffer,
+                               StaticTask_t * const pxTaskBuffer)
+{
+    (void)pcName;
+    (void)uxPriority;
+
+    if ((pxTaskCode == NULL) || (puxStackBuffer == NULL)
+            || (pxTaskBuffer == NULL)) {
+        return NULL;
+    }
+    // User-owned stack buffer: enforce the same page/guardian/alignment
+    // floor as the dynamic path without secretly growing the caller's
+    // allocation. ulStackDepth is in bytes (StackType_t == uint8_t).
+    if (ulStackDepth < VSF_FREERTOS_CFG_MIN_STACK_BYTES) {
+        return NULL;
+    }
+    uint32_t page = (uint32_t)VSF_KERNEL_CFG_THREAD_STACK_PAGE_SIZE;
+    uint32_t guard = (uint32_t)VSF_KERNEL_CFG_THREAD_STACK_GUARDIAN_SIZE;
+    if (ulStackDepth < (page + guard)) {
+        return NULL;
+    }
+    if ((ulStackDepth & (page - 1u)) != 0u) {
+        return NULL;
+    }
+    if ((ulStackDepth & 7u) != 0u) {
+        return NULL;
+    }
+    // 8-byte alignment of the stack buffer itself is the caller's
+    // responsibility; StaticTask_t is uint64_t[]-backed so is aligned
+    // by construction.
+    if (((uintptr_t)puxStackBuffer & 7u) != 0u) {
+        return NULL;
+    }
+
+    StaticTask_t *ft = (StaticTask_t *)pxTaskBuffer;
+    memset(ft, 0, sizeof(*ft));
+    ft->entry           = (void (*)(void *))pxTaskCode;
+    ft->arg             = pvParameters;
+    ft->stack           = (void *)puxStackBuffer;
+    ft->stack_bytes     = ulStackDepth;
+    ft->is_static       = true;
+    ft->is_stack_static = true;
+
+    vsf_err_t err = __frt_task_spawn(ft);
+    if (err != VSF_ERR_NONE) {
+        return NULL;
+    }
+    return (TaskHandle_t)ft;
 }
 
 void vTaskDelete(TaskHandle_t xTaskToDelete)

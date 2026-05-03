@@ -66,7 +66,7 @@
 #   define VSF_ESPIDF_CFG_USE_ERR               ENABLED
 #endif
 #ifndef VSF_ESPIDF_CFG_USE_EVENT
-#   define VSF_ESPIDF_CFG_USE_EVENT             DISABLED
+#   define VSF_ESPIDF_CFG_USE_EVENT             ENABLED
 #endif
 #ifndef VSF_ESPIDF_CFG_USE_TIMER
 #   define VSF_ESPIDF_CFG_USE_TIMER             ENABLED

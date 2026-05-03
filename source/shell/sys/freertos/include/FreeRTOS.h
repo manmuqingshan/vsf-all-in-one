@@ -25,6 +25,21 @@
 #ifndef __VSF_FREERTOS_H__
 #define __VSF_FREERTOS_H__
 
+// Pull in the VSF kernel so shim headers that expose their control blocks
+// as vsf_class (queue, semphr, task, timers, event_groups, stream_buffer)
+// have vsf_sem_t / vsf_mutex_t / vsf_eda_queue_t / vsf_bmpevt_t /
+// vsf_callback_timer_t / vsf_thread_t visible when they compute
+// sizeof(private_member(...)). The shim lives inside the VSF tree so any
+// consumer is a VSF user; FreeRTOS-style callers never touch the
+// transitively-leaked symbols.
+#include "kernel/vsf_kernel.h"
+
+// Pull in the shim's own config (VSF_FREERTOS_CFG_USE_NOTIFY /
+// VSF_FREERTOS_CFG_USE_TASK / ...) so that vsf_class-based control
+// blocks in task.h / queue.h / ... can pick up conditional members.
+// vsf_freertos_cfg.h lives one level above include/.
+#include "../vsf_freertos_cfg.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

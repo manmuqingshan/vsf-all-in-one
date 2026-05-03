@@ -22,7 +22,7 @@
 #if VSF_USE_ESPIDF == ENABLED
 
 #include "./vsf_espidf.h"
-#if VSF_ESPIDF_CFG_USE_TIMER == ENABLED
+#if (VSF_ESPIDF_CFG_USE_TIMER == ENABLED) || (VSF_ESPIDF_CFG_USE_EVENT == ENABLED)
 #   include "esp_err.h"
 #endif
 
@@ -64,8 +64,11 @@ void vsf_espidf_init(const vsf_espidf_cfg_t *cfg)
     extern esp_err_t esp_timer_init(void);
     (void)esp_timer_init();
 #endif
+#if VSF_ESPIDF_CFG_USE_EVENT == ENABLED
+    extern esp_err_t esp_event_loop_create_default(void);
+    (void)esp_event_loop_create_default();
+#endif
     // TODO:
-    //   vsf_espidf_event_init();
     //   vsf_espidf_nvs_init();
 }
 

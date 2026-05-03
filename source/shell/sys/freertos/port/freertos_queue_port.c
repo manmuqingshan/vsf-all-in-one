@@ -42,6 +42,7 @@
 
 #include <string.h>
 
+#define __VSF_FREERTOS_QUEUE_CLASS_IMPLEMENT
 #include "FreeRTOS.h"
 #include "queue.h"
 
@@ -64,16 +65,9 @@
 
 /*============================ TYPES =========================================*/
 
-typedef struct QueueDefinition {
-    implement(vsf_eda_queue_t)
-
-    uint16_t    head;           // write cursor (next enqueue slot)
-    uint16_t    tail;           // read cursor  (next dequeue slot)
-    uint16_t    node_num;       // ring capacity in slots
-    uint16_t    node_size;      // bytes per slot
-
-    uint8_t     node_buffer[];  // flexible ring storage
-} __vsf_frt_queue_t;
+// Control block = StaticQueue_t (vsf_class declared in queue.h). Heap
+// and caller-provided static buffers share the same layout; the two
+// is_*_static flags control who owns the storage at vQueueDelete time.
 
 /*============================ PROTOTYPES ====================================*/
 
@@ -84,7 +78,8 @@ static bool __frt_queue_dequeue(vsf_eda_queue_t *base, void **item);
 
 static bool __frt_queue_enqueue(vsf_eda_queue_t *base, void *item)
 {
-    __vsf_frt_queue_t *q = (__vsf_frt_queue_t *)base;
+    // vsf_eda_queue_t is the first embedded member; offset-0 upcast back.
+    StaticQueue_t *q = (StaticQueue_t *)base;
     memcpy(&q->node_buffer[q->head * q->node_size], item, q->node_size);
     if (++q->head >= q->node_num) {
         q->head = 0;
@@ -94,7 +89,7 @@ static bool __frt_queue_enqueue(vsf_eda_queue_t *base, void *item)
 
 static bool __frt_queue_dequeue(vsf_eda_queue_t *base, void **item)
 {
-    __vsf_frt_queue_t *q = (__vsf_frt_queue_t *)base;
+    StaticQueue_t *q = (StaticQueue_t *)base;
     // vsf_eda_queue passes a `void **` slot; the ring stores raw item
     // bytes so we memcpy into *caller-provided* destination which itself
     // lives at `item`. Mirrors rtos_al.c semantics.
@@ -114,17 +109,47 @@ QueueHandle_t xQueueCreate(UBaseType_t uxQueueLength, UBaseType_t uxItemSize)
         return NULL;
     }
 
-    size_t bytes = sizeof(__vsf_frt_queue_t)
-                 + (size_t)uxQueueLength * (size_t)uxItemSize;
-    __vsf_frt_queue_t *q = vsf_heap_malloc(bytes);
+    StaticQueue_t *q = (StaticQueue_t *)vsf_heap_malloc(sizeof(*q));
     if (q == NULL) {
         return NULL;
     }
+    uint8_t *storage = (uint8_t *)vsf_heap_malloc(
+            (size_t)uxQueueLength * (size_t)uxItemSize);
+    if (storage == NULL) {
+        vsf_heap_free(q);
+        return NULL;
+    }
     memset(q, 0, sizeof(*q));
-    q->node_num  = (uint16_t)uxQueueLength;
-    q->node_size = (uint16_t)uxItemSize;
-    q->op.enqueue = __frt_queue_enqueue;
-    q->op.dequeue = __frt_queue_dequeue;
+    q->node_buffer = storage;
+    q->node_num    = (uint16_t)uxQueueLength;
+    q->node_size   = (uint16_t)uxItemSize;
+    q->op.enqueue  = __frt_queue_enqueue;
+    q->op.dequeue  = __frt_queue_dequeue;
+    vsf_eda_queue_init(&q->use_as__vsf_eda_queue_t, (uint_fast16_t)uxQueueLength);
+    return (QueueHandle_t)q;
+}
+
+QueueHandle_t xQueueCreateStatic(UBaseType_t uxQueueLength,
+                                 UBaseType_t uxItemSize,
+                                 uint8_t *pucQueueStorage,
+                                 StaticQueue_t *pxQueueBuffer)
+{
+    if ((uxQueueLength == 0) || (uxItemSize == 0)
+            || (pucQueueStorage == NULL) || (pxQueueBuffer == NULL)) {
+        return NULL;
+    }
+    if ((uxQueueLength > UINT16_MAX) || (uxItemSize > UINT16_MAX)) {
+        return NULL;
+    }
+    StaticQueue_t *q = pxQueueBuffer;
+    memset(q, 0, sizeof(*q));
+    q->node_buffer       = pucQueueStorage;
+    q->node_num          = (uint16_t)uxQueueLength;
+    q->node_size         = (uint16_t)uxItemSize;
+    q->is_static         = true;
+    q->is_storage_static = true;
+    q->op.enqueue        = __frt_queue_enqueue;
+    q->op.dequeue        = __frt_queue_dequeue;
     vsf_eda_queue_init(&q->use_as__vsf_eda_queue_t, (uint_fast16_t)uxQueueLength);
     return (QueueHandle_t)q;
 }
@@ -134,9 +159,15 @@ void vQueueDelete(QueueHandle_t xQueue)
     if (xQueue == NULL) {
         return;
     }
+    StaticQueue_t *q = xQueue;
     // Wake any blocked waiters with a cancel before freeing storage.
-    vsf_eda_queue_cancel(&xQueue->use_as__vsf_eda_queue_t);
-    vsf_heap_free(xQueue);
+    vsf_eda_queue_cancel(&q->use_as__vsf_eda_queue_t);
+    if ((q->node_buffer != NULL) && !q->is_storage_static) {
+        vsf_heap_free(q->node_buffer);
+    }
+    if (!q->is_static) {
+        vsf_heap_free(q);
+    }
 }
 
 BaseType_t xQueueSend(QueueHandle_t xQueue, const void *pvItemToQueue,

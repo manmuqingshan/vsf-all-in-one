@@ -67,16 +67,45 @@ typedef uint8_t                 StackType_t;
 #   define pdFAIL               pdFALSE
 #endif
 
-// VSF uses cooperative scheduling inside a priority queue; from the caller
-// point of view there is no "critical section" separate from interrupt
-// masking. These are no-ops so that code compiles; users that actually need
-// IRQ-safe sections should call vsf_protect_*() directly.
-#define portENTER_CRITICAL()            ((void)0)
-#define portEXIT_CRITICAL()             ((void)0)
-#define portENTER_CRITICAL_ISR()        ((void)0)
-#define portEXIT_CRITICAL_ISR()         ((void)0)
+// Scheduler-level critical sections. Under the hood these call
+// vTaskEnterCritical / vTaskExitCritical (see task.h), which wrap
+// vsf_sched_lock with a nested-counter so pairs can safely nest.
+// The FromISR variants return/accept the saved scheduler state.
+//
+// ESP-IDF's FreeRTOS variant passes a portMUX_TYPE spinlock to the
+// macro -- we accept but ignore the argument on single-core targets.
+// Users that genuinely need IRQ-off sections should still call
+// vsf_protect_interrupt() directly.
+#define portENTER_CRITICAL(...)         vTaskEnterCritical()
+#define portEXIT_CRITICAL(...)          vTaskExitCritical()
+#define portENTER_CRITICAL_ISR(...)     vTaskEnterCritical()
+#define portEXIT_CRITICAL_ISR(...)      vTaskExitCritical()
 #define portDISABLE_INTERRUPTS()        ((void)0)
 #define portENABLE_INTERRUPTS()         ((void)0)
+
+// ESP-IDF portMUX_TYPE spinlock compatibility shim. On single-core VSF
+// targets there is no real spinlock to acquire; the type and its
+// initialiser are provided purely so code written for ESP-IDF compiles.
+typedef struct {
+    uint32_t _placeholder;
+} portMUX_TYPE;
+#define portMUX_INITIALIZER_UNLOCKED    { 0 }
+#define portMUX_FREE_VAL                0
+#define vPortCPUInitializeMutex(mux)    do { (void)(mux); } while(0)
+
+// Entry points (defined in port/freertos_critical_port.c). Exposed
+// through portmacro.h so anything that includes FreeRTOS.h picks them up.
+extern void          vTaskEnterCritical(void);
+extern void          vTaskExitCritical(void);
+extern UBaseType_t   vTaskEnterCriticalFromISR(void);
+extern void          vTaskExitCriticalFromISR(UBaseType_t uxSavedInterruptState);
+
+#define taskENTER_CRITICAL(...)             vTaskEnterCritical()
+#define taskEXIT_CRITICAL(...)              vTaskExitCritical()
+#define taskENTER_CRITICAL_ISR(...)         vTaskEnterCriticalFromISR()
+#define taskEXIT_CRITICAL_ISR(x)            vTaskExitCriticalFromISR((UBaseType_t)(x))
+#define taskENTER_CRITICAL_FROM_ISR(...)    vTaskEnterCriticalFromISR()
+#define taskEXIT_CRITICAL_FROM_ISR(x)       vTaskExitCriticalFromISR((UBaseType_t)(x))
 
 // Stack budget unit. FreeRTOS defines configMINIMAL_STACK_SIZE in units of
 // StackType_t. In this shim one unit == one byte.
