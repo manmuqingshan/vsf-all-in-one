@@ -28,8 +28,10 @@ extern "C" {
 
 /*============================ MACROS ========================================*/
 
-// default is 2^5 = 32-bit IO
-#define VSF_HW_IO_MAPPER_PORT_BITS_LOG2         5
+// default is 2^8 = 256-pin IO (leaves headroom for MCUs with >32 pins/port)
+#ifndef VSF_HW_IO_MAPPER_PORT_BITS_LOG2
+#   define VSF_HW_IO_MAPPER_PORT_BITS_LOG2     8
+#endif
 
 /*============================ MACROFIED FUNCTIONS ===========================*/
 

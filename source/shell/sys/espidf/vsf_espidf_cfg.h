@@ -85,11 +85,36 @@
 #ifndef VSF_ESPIDF_CFG_USE_PARTITION
 #   define VSF_ESPIDF_CFG_USE_PARTITION         DISABLED
 #endif
+// Runtime esp_partition_register_external() / _deregister_external() slot
+// pool. Set to 0 to compile the entry points out entirely (callers receive
+// ESP_ERR_INVALID_STATE). Compile-time entries from vsf_espidf_cfg_t are
+// always available regardless of this switch.
+#ifndef VSF_ESPIDF_CFG_PARTITION_DYNAMIC
+#   define VSF_ESPIDF_CFG_PARTITION_DYNAMIC     ENABLED
+#endif
+#ifndef VSF_ESPIDF_CFG_PARTITION_MAX_DYNAMIC
+#   define VSF_ESPIDF_CFG_PARTITION_MAX_DYNAMIC 8
+#endif
 #ifndef VSF_ESPIDF_CFG_USE_NVS
 #   define VSF_ESPIDF_CFG_USE_NVS               DISABLED
 #endif
+#ifndef VSF_ESPIDF_CFG_USE_ESP_FLASH
+#   define VSF_ESPIDF_CFG_USE_ESP_FLASH         DISABLED
+#endif
 #ifndef VSF_ESPIDF_CFG_USE_VFS
 #   define VSF_ESPIDF_CFG_USE_VFS               DISABLED
+#endif
+#ifndef VSF_ESPIDF_CFG_USE_LITTLEFS
+#   define VSF_ESPIDF_CFG_USE_LITTLEFS          DISABLED
+#endif
+#ifndef VSF_ESPIDF_CFG_LITTLEFS_MAX_INSTANCES
+#   define VSF_ESPIDF_CFG_LITTLEFS_MAX_INSTANCES 4
+#endif
+#ifndef VSF_ESPIDF_CFG_USE_FATFS
+#   define VSF_ESPIDF_CFG_USE_FATFS             DISABLED
+#endif
+#ifndef VSF_ESPIDF_CFG_FATFS_MAX_INSTANCES
+#   define VSF_ESPIDF_CFG_FATFS_MAX_INSTANCES   2
 #endif
 
 // Network

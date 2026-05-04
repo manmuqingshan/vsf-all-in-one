@@ -68,6 +68,44 @@ void vsf_espidf_init(const vsf_espidf_cfg_t *cfg)
     extern esp_err_t esp_event_loop_create_default(void);
     (void)esp_event_loop_create_default();
 #endif
+#if VSF_ESPIDF_CFG_USE_PARTITION == ENABLED
+    extern void vsf_espidf_partition_init(const vsf_espidf_partition_cfg_t *cfg);
+    vsf_espidf_partition_init((cfg != NULL) ? &cfg->partition : NULL);
+#endif
+#if VSF_ESPIDF_CFG_USE_ESP_FLASH == ENABLED
+    extern void vsf_espidf_esp_flash_init(vk_mal_t *root_mal);
+    vsf_espidf_esp_flash_init(
+#   if VSF_ESPIDF_CFG_USE_PARTITION == ENABLED
+            (cfg != NULL) ? cfg->partition.root_mal : NULL
+#   else
+            NULL
+#   endif
+    );
+#endif
+#if VSF_ESPIDF_CFG_USE_DRIVER_GPTIMER == ENABLED
+    extern void vsf_espidf_gptimer_init(const vsf_espidf_gptimer_cfg_t *cfg);
+    vsf_espidf_gptimer_init((cfg != NULL) ? &cfg->gptimer : NULL);
+#endif
+#if VSF_ESPIDF_CFG_USE_DRIVER_UART == ENABLED
+    extern void vsf_espidf_uart_init(const vsf_espidf_uart_cfg_t *cfg);
+    vsf_espidf_uart_init((cfg != NULL) ? &cfg->uart : NULL);
+#endif
+#if VSF_ESPIDF_CFG_USE_DRIVER_I2C == ENABLED
+    extern void vsf_espidf_i2c_init(const vsf_espidf_i2c_cfg_t *cfg);
+    vsf_espidf_i2c_init((cfg != NULL) ? &cfg->i2c : NULL);
+#endif
+#if VSF_ESPIDF_CFG_USE_DRIVER_SPI_MASTER == ENABLED
+    extern void vsf_espidf_spi_init(const vsf_espidf_spi_cfg_t *cfg);
+    vsf_espidf_spi_init((cfg != NULL) ? &cfg->spi : NULL);
+#endif
+#if VSF_ESPIDF_CFG_USE_DRIVER_LEDC == ENABLED
+    extern void vsf_espidf_ledc_init(const vsf_espidf_ledc_cfg_t *cfg);
+    vsf_espidf_ledc_init((cfg != NULL) ? &cfg->ledc : NULL);
+#endif
+#if VSF_ESPIDF_CFG_USE_DRIVER_ADC == ENABLED
+    extern void vsf_espidf_adc_init(const vsf_espidf_adc_cfg_t *cfg);
+    vsf_espidf_adc_init((cfg != NULL) ? &cfg->adc : NULL);
+#endif
     // TODO:
     //   vsf_espidf_nvs_init();
 }

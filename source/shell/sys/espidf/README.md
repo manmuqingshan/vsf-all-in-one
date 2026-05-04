@@ -47,11 +47,14 @@ espidf/
 | lwIP + BSD sockets | `component/3rd-party/lwip` + `component/tcpip/socket` |
 | mbedtls | `component/3rd-party/mbedtls` |
 | `esp_http_client.h` / `esp_http_server.h` | `component/tcpip/protocol/http` |
-| cJSON / esp_json | `service/json` |
+| cJSON / esp_json | not shimmed -- applications include cJSON directly |
 | pthread | `shell/sys/linux` pthread |
 | FreeRTOS FreeRTOS.h, queue, event_groups | VSF FreeRTOS compat layer |
 | `esp_netif.h` | `component/tcpip/netdrv` + lwIP glue |
-| `driver/gpio|uart|i2c|spi_master|ledc|gptimer|adc` | `hal/driver/common/template/vsf_template_*` |
+| `driver/gptimer` | `hal/driver/common/template/vsf_template_timer.h` (pool injected via `vsf_espidf_cfg_t::gptimer`) |
+| `driver/gpio` | `hal/driver/common/template/vsf_template_gpio.h` (global `vsf_hw_io_mapper`, no cfg injection) |
+| `driver/uart` | `hal/driver/common/template/vsf_template_usart.h` (pool injected via `vsf_espidf_cfg_t::uart`) |
+| `driver/i2c` / `driver/spi_master` / `driver/ledc` / `driver/adc` | `hal/driver/common/template/vsf_template_*` (code landed; on-target pending, see Stage 4 table) |
 | `esp_wifi.h` | external Wi-Fi module semantic shim (stage C) |
 | `esp_bt.h` | external HCI via VSF BTHCI (stage C) |
 | `mqtt_client.h` | upstream Paho Embedded C (not ESP-MQTT) |
@@ -73,9 +76,22 @@ Stage 2 (storage & fs): `esp_partition` → `nvs_flash` → `esp_vfs`.
 Stage 3 (network): `esp_netif` → `esp_http_client` / `esp_http_server` →
 (optional) MQTT via upstream Paho.
 
-Stage 4 (peripheral drivers): `driver/gpio` → `driver/uart` →
-`driver/i2c` → `driver/spi_master` → `driver/ledc` → `driver/gptimer` →
-`driver/adc`.
+Stage 4 (peripheral drivers). Status is tracked on two independent
+axes: **code** (shim landed in tree) and **on-target** (verified on real
+MCU hardware such as at32f405). Host build under `project/vc.espidf/`
+does **not** satisfy on-target verification.
+
+| Driver | Code | On-target | Notes |
+|---|---|---|---|
+| `driver/gptimer`    | ✅ | ⬜ | pool-injected via `vsf_espidf_cfg_t::gptimer` |
+| `driver/gpio`       | ✅ | ⬜ | global `vsf_hw_io_mapper`, no cfg injection |
+| `driver/uart`       | ✅ | ⬜ | pool-injected; `usart_stream` ring-buffer backend |
+| `driver/i2c`        | ✅ | ⬜ | v5.2 new API only; legacy `driver/i2c.h` deferred |
+| `driver/spi_master` | ✅ | ⬜ | pool-injected |
+| `driver/ledc`       | ✅ | ⬜ | — |
+| `driver/adc`        | ✅ | ⬜ | oneshot only |
+
+A driver is considered fully **done** only when both axes are ✅.
 
 Stage 5 (radio, optional): external Wi-Fi module `esp_wifi` semantic shim.
 

@@ -33,6 +33,9 @@ Planned subdirectories (populated per-module):
 - `esp_http_client.h`, `esp_http_server.h`
 - `esp_wifi.h`, `esp_wifi_types.h` (stage C, requires external radio)
 - `freertos/FreeRTOS.h` and friends (forwarders to VSF FreeRTOS compat)
-- `driver/gpio.h`, `driver/uart.h`, `driver/i2c.h`, `driver/spi_master.h`,
-  `driver/ledc.h`, `driver/gptimer.h`, `driver/adc.h`
+- `driver/gptimer.h` (present)
+- `driver/gpio.h` (present)
+- `driver/uart.h` (present)
+- `driver/i2c_master.h`, `driver/spi_master.h`,
+  `driver/ledc.h`, `driver/adc.h` (pending)
 - `hal/gpio_types.h`, `hal/uart_types.h`, ...
